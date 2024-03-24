@@ -5,11 +5,14 @@ DELIMITER //
 
 CREATE PROCEDURE ComputeAverageWeightedScoreForUsers()
 BEGIN
-    DECLARE user_cursor CURSOR FOR
-        SELECT id FROM users;
-
     DECLARE done BOOLEAN DEFAULT FALSE;
     DECLARE user_id INT;
+    DECLARE total_score FLOAT;
+    DECLARE total_weight FLOAT;
+    DECLARE average_score FLOAT;
+
+    DECLARE user_cursor CURSOR FOR
+        SELECT id FROM users;
 
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
 
@@ -21,7 +24,21 @@ BEGIN
             LEAVE read_loop;
         END IF;
 
-        CALL ComputeAverageWeightedScoreForUser(user_id);
+        SELECT SUM(score * weight), SUM(weight)
+        INTO total_score, total_weight
+        FROM corrections
+        JOIN projects ON corrections.project_id = projects.id
+        WHERE corrections.user_id = user_id;
+
+        IF total_weight > 0 THEN
+            SET average_score = total_score / total_weight;
+        ELSE
+            SET average_score = 0;
+        END IF;
+
+        UPDATE users
+        SET average_score = average_score
+        WHERE id = user_id;
     END LOOP;
 
     CLOSE user_cursor;
